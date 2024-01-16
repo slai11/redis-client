@@ -243,8 +243,8 @@ class RedisClient
   end
 
   def measure_round_trip_delay
-    ensure_connected do |connection|
-      @middlewares.call(["PING"], config) do
+    ensure_connected do |connection, attempts|
+      @middlewares.call(["PING"], config, attempts) do
         connection.measure_round_trip_delay
       end
     end
@@ -252,8 +252,8 @@ class RedisClient
 
   def call(*command, **kwargs)
     command = @command_builder.generate(command, kwargs)
-    result = ensure_connected do |connection|
-      @middlewares.call(command, config) do
+    result = ensure_connected do |connection, attempts|
+      @middlewares.call(command, config, attempts) do
         connection.call(command, nil)
       end
     end
@@ -267,8 +267,8 @@ class RedisClient
 
   def call_v(command)
     command = @command_builder.generate(command)
-    result = ensure_connected do |connection|
-      @middlewares.call(command, config) do
+    result = ensure_connected do |connection, attempts|
+      @middlewares.call(command, config, attempts) do
         connection.call(command, nil)
       end
     end
@@ -282,8 +282,8 @@ class RedisClient
 
   def call_once(*command, **kwargs)
     command = @command_builder.generate(command, kwargs)
-    result = ensure_connected(retryable: false) do |connection|
-      @middlewares.call(command, config) do
+    result = ensure_connected(retryable: false) do |connection, attempts|
+      @middlewares.call(command, config, attempts) do
         connection.call(command, nil)
       end
     end
@@ -313,8 +313,8 @@ class RedisClient
   def blocking_call(timeout, *command, **kwargs)
     command = @command_builder.generate(command, kwargs)
     error = nil
-    result = ensure_connected do |connection|
-      @middlewares.call(command, config) do
+    result = ensure_connected do |connection, attempts|
+      @middlewares.call(command, config, attempts) do
         connection.call(command, timeout)
       end
     rescue ReadTimeoutError => error
@@ -333,8 +333,8 @@ class RedisClient
   def blocking_call_v(timeout, command)
     command = @command_builder.generate(command)
     error = nil
-    result = ensure_connected do |connection|
-      @middlewares.call(command, config) do
+    result = ensure_connected do |connection, attempts|
+      @middlewares.call(command, config, attempts) do
         connection.call(command, timeout)
       end
     rescue ReadTimeoutError => error
@@ -406,9 +406,9 @@ class RedisClient
     if pipeline._size == 0
       []
     else
-      results = ensure_connected(retryable: pipeline._retryable?) do |connection|
+      results = ensure_connected(retryable: pipeline._retryable?) do |connection, attempts|
         commands = pipeline._commands
-        @middlewares.call_pipelined(commands, config) do
+        @middlewares.call_pipelined(commands, config, attempts) do
           connection.call_pipelined(commands, pipeline._timeouts)
         end
       end
@@ -445,9 +445,9 @@ class RedisClient
       if transaction._empty?
         []
       else
-        ensure_connected(retryable: transaction._retryable?) do |connection|
+        ensure_connected(retryable: transaction._retryable?) do |connection, attempts|
           commands = transaction._commands
-          @middlewares.call_pipelined(commands, config) do
+          @middlewares.call_pipelined(commands, config, attempts) do
             connection.call_pipelined(commands, nil)
           end.last
         end
@@ -674,7 +674,7 @@ class RedisClient
       begin
         connection = raw_connection
         if block_given?
-          yield connection
+          yield connection, tries
         else
           connection
         end

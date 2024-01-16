@@ -7,11 +7,11 @@ class RedisClient
         config.circuit_breaker.protect { super }
       end
 
-      def call(_command, config)
+      def call(_command, config, _attempts = nil)
         config.circuit_breaker.protect { super }
       end
 
-      def call_pipelined(_commands, config)
+      def call_pipelined(_commands, config, _attempts = nil)
         config.circuit_breaker.protect { super }
       end
     end

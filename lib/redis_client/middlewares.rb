@@ -12,7 +12,7 @@ class RedisClient
       yield
     end
 
-    def call(command, _config)
+    def call(command, _config, _attempts = nil)
       yield command
     end
     alias_method :call_pipelined, :call
